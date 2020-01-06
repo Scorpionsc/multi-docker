@@ -1,0 +1,36 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t scorpionsc/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true scorpionsc/react-test npm run test
+
+after_success:
+  - docker build -t scorpionsc/multi-client ./client
+  - docker build -t scorpionsc/multi-nginx ./nginx
+  - docker build -t scorpionsc/multi-server ./server
+  - docker build -t scorpionsc/multi-worker ./worker
+  # log in to the docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take those images and push them to docker hub
+  - docker push scorpionsc/multi-client
+  - docker push scorpionsc/multi-nginx
+  - docker push scorpionsc/multi-server
+  - docker push scorpionsc/multi-worker
+
+
+deploy:
+  edge: true
+  provider: elasticbeanstalk
+  region: "eu-central-1"
+  app: "docker"
+  env: "Docker-env"
+  bucket_name: "elasticbeanstalk-eu-central-1-170909906622"
+  bucket_path: "docker"
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
